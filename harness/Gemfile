@@ -1,0 +1,13 @@
+source "https://rubygems.org"
+
+git_source(:github) { |repo_name| "https://github.com/#{repo_name}" }
+
+gem "aza-siem", git: "git@github.com:bitpesa/aza-siem.git"
+gem "ddtrace", "~> 1.1"
+gem "dotenv"
+gem "pry"
+gem "rack-contrib", "~> 2.3"
+gem "sinatra"
+gem "sinatra-contrib"
+gem "sinatra-param", require: "sinatra/param"
+gem "webrick", "~> 1.8"

@@ -1,0 +1,30 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  namespace: azafinance
+  name: LiquidityRequest
+  description: Rails microservice for LiquidityRequest.
+  tags:
+    - ruby
+    - rails
+    - microservice
+  links:
+    - url: https://liquidity-request-staging.internal.bitpesa.co
+      title: Staging Url
+      icon: api
+      type: staging_url
+    - url: https://liquidity-request-sandbox.internal.bitpesa.co
+      title: Sandbox Url
+      icon: api
+      type: sandbox_url
+    - url: https://liquidity-request.internal.bitpesa.co
+      title: Production Url
+      icon: api
+      type: production_url
+  annotations:
+    github.com/project-slug: bitpesa/liquidity-request
+
+spec:
+  type: service
+  lifecycle: production
+  owner: azafinance

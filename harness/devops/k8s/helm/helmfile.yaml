@@ -1,0 +1,26 @@
+helmDefaults:
+  historyMax: 10
+  verify: false
+  wait: false
+  timeout: 600
+  recreatePods: false
+  force: false
+  createNamespace: false
+
+repositories:
+  - name: aza
+    url: https://{{ requiredEnv "GITHUB_TOKEN"}}@raw.githubusercontent.com/bitpesa/bitpesa-terraform/master/helm-charts
+
+environments:
+  staging: {}
+  sandbox: {}
+
+releases:
+  - chart: aza/harness
+    cleanupOnFail: false
+    devel: false
+    name: harness-liquidity-request-service
+    namespace: harness
+    skipDeps: false
+    values:
+      - environments/{{ .Environment.Name }}/values.yaml.gotmpl

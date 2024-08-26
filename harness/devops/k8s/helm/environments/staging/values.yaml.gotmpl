@@ -1,0 +1,13 @@
+image:
+  repository: 753253020381.dkr.ecr.eu-west-1.amazonaws.com/harness-liquidity-request-service
+  tag: IMAGE_TAG
+
+nameOverride: "harness-liquidity-request-service"
+
+ingress:
+  enabled: true
+  annotations:
+    konghq.com/strip-path: "true"
+    kubernetes.io/ingress.class: kong
+  paths:
+    - path: /harness/liquidity-request-service

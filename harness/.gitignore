@@ -1,0 +1,8 @@
+.DS_Store
+/.bundle/
+vendor/
+.env
+
+# Ignore all logfiles.
+/log/*
+!/log/.keep

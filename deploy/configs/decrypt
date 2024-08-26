@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+set -eu -o pipefail
+
+variable_to_decrypt=$1
+
+echo $(aws kms decrypt --ciphertext-blob fileb://<(echo $variable_to_decrypt | base64 --decode) --output text --query Plaintext --region eu-west-1 | base64 --decode)
+

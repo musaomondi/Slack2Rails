@@ -1,0 +1,154 @@
+name: Harness Deployment
+
+on:
+  push:
+    branches: ['master']
+    paths: ['harness/**']
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  staging_environment:
+    runs-on: ['staging']
+
+    env:
+      SANDBOX_CLUSTER_NAME: 'terraform-eks-k8s-sandbox'
+      STAGING_CLUSTER_NAME: 'terraform-eks-k8s-staging'
+      SERVICE_NAME: ${{ github.event.repository.name }}
+      GITHUB_TOKEN: '${{ secrets.CI_GITHUB_TOKEN }}'
+
+    defaults:
+      run:
+        working-directory: ./harness
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.GLOBAL_GH_SSH_KEY }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1-node16
+        with:
+          role-to-assume: arn:aws:iam::753253020381:role/github-action-deploy-role
+          aws-region: eu-west-1
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install awscli
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          working-directory: ./harness
+          bundler-cache: true
+
+      - name: Run Bundle Install
+        id: bundle-install
+        run: |
+          bundle package --all
+
+      - uses: docker/setup-buildx-action@v2
+        with:
+          driver: docker
+      - run: |
+          echo "IMAGE_TAG=${{ github.head_ref || github.ref_name }}-${{ github.sha }}" >> $GITHUB_ENV
+
+      - name: Build and push to ECR
+        id: build-and-push
+
+        uses: docker/build-push-action@v3
+        env:
+          REPOSITORY_URI: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+
+        with:
+          context: harness
+          push: true
+          tags: ${{ env.REPOSITORY_URI }}/harness-${{ env.SERVICE_NAME }}:${{ env.IMAGE_TAG }}
+
+      - name: Setup The helmfile
+        uses: mamezou-tech/setup-helmfile@v1.2.0
+        with:
+          helmfile-version: 'v0.144.0'
+          helm-diff-plugin-version: 'v3.5.0'
+          install-kubectl: yes
+          install-helm: yes
+
+      - name: Deploy to Staging Cluster
+        env:
+          ENVIRONMENT_NAME: 'staging'
+        run: |
+          aws eks --region eu-west-1  update-kubeconfig --name ${{ env.STAGING_CLUSTER_NAME }}
+          sed -i 's@IMAGE_TAG@'"$IMAGE_TAG"'@' "devops/k8s/helm/environments/$ENVIRONMENT_NAME/values.yaml.gotmpl"
+          cd devops
+          sh ./deploy.sh
+
+  sandbox_environment:
+    needs: staging_environment
+    runs-on: ['sandbox']
+    env:
+      SANDBOX_CLUSTER_NAME: 'terraform-eks-k8s-sandbox'
+      SERVICE_NAME: ${{ github.event.repository.name }}
+      GITHUB_TOKEN: '${{ secrets.CI_GITHUB_TOKEN }}'
+
+    defaults:
+      run:
+        working-directory: ./harness
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.GLOBAL_GH_SSH_KEY }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1-node16
+        with:
+          role-to-assume: arn:aws:iam::753253020381:role/github-action-deploy-role
+          aws-region: eu-west-1
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          working-directory: ./harness
+          bundler-cache: true
+
+      - run: |
+          echo "IMAGE_TAG=${{ github.head_ref || github.ref_name }}-${{ github.sha }}" >> $GITHUB_ENV
+
+      - uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install awscli
+
+      - name: Setup The helmfile
+        uses: mamezou-tech/setup-helmfile@v1.2.0
+        with:
+          helmfile-version: 'v0.144.0'
+          helm-diff-plugin-version: 'v3.5.0'
+          install-kubectl: yes
+          install-helm: yes
+
+      - name: Deploy to Sandbox Cluster
+        env:
+          ENVIRONMENT_NAME: 'sandbox'
+        run: |
+          aws eks --region eu-west-1  update-kubeconfig --name ${{ env.SANDBOX_CLUSTER_NAME }}
+          sed -i 's@IMAGE_TAG@'"$IMAGE_TAG"'@' "devops/k8s/helm/environments/$ENVIRONMENT_NAME/values.yaml.gotmpl"
+          cd devops
+          sh ./deploy.sh

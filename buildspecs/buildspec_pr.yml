@@ -1,0 +1,60 @@
+version: 0.2
+
+env:
+  parameter-store:
+    github_ssh_key: 'github_ssh_key'
+    reviewdog_github_api_token: 'reviewdog_github_api_token'
+
+phases:
+  install:
+    commands:
+      - |
+        mkdir -p ~/.ssh
+        echo "$github_ssh_key" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+      - |
+        if [ "$test_WEBHOOK_EVENT" = "PUSH" ] && expr "$test_WEBHOOK_HEAD_REF" : '.*upgrade-rails.*' >/dev/null; then
+          bundle add next_rails --group test --skip-install || true
+        fi
+      - bundle install
+      - wget -O - -q https://raw.githubusercontent.com/reviewdog/reviewdog/master/install.sh | sh -s -- -b /tmp
+      
+      - su - postgres -c 'initdb -D /var/lib/pgsql/data'
+      - su - postgres -c 'pg_ctl start'
+      
+      
+
+  pre_build:
+    commands:
+      - cp -v .env.test.example .env
+      
+      - psql -c "UPDATE pg_database SET datistemplate = true, encoding = 6 WHERE datname = 'template1';" -U postgres
+      - psql -c "SELECT datname, encoding FROM pg_database WHERE datname='template1';" -U postgres
+      - psql -c 'DROP ROLE IF EXISTS test;' -U postgres
+      - psql -c 'CREATE ROLE test SUPERUSER LOGIN CREATEDB;' -U postgres
+      - bundle exec rake db:create
+      - bundle exec rake db:migrate
+      
+      - export CI_REPO_OWNER="bitpesa"
+      - export CI_REPO_NAME="liquidity-request-service"
+      - export CI_COMMIT=$(git rev-parse HEAD)
+      - export CI_PULL_REQUEST=""
+      - export REVIEWDOG_GITHUB_API_TOKEN=$reviewdog_github_api_token
+      - export RAILS_ENV=test
+
+  build:
+    commands:
+      - bundle exec bundle-audit check --update
+      - bundle exec brakeman -z
+      - bundle exec rubocop .|/tmp/reviewdog -f=rubocop -diff="git diff master" -reporter=github-pr-review -guess
+      - |
+        set -e
+
+        if expr "$test_WEBHOOK_HEAD_REF" : '.*upgrade-rails.*' >/dev/null; then
+          export GIT_COMMIT=`git log -1 --pretty=%H`
+          DEPRECATION_TRACKER=save bundle exec rspec || TEST_RESULT=$?
+          ./buildspecs/push_deprecation_warnings.rb
+          exit $TEST_RESULT
+        else
+          bundle exec rspec
+        fi

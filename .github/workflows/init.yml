@@ -1,0 +1,45 @@
+name: Init Project
+
+on: [create, workflow_dispatch]
+
+# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+jobs:
+  # This workflow contains a single job called "build"
+  build:
+    if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master'
+
+    # The type of runner that the job will run on
+    runs-on: ubuntu-latest
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.CI_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
+      - name: Setup SSH
+        if: ${{ github.repository_owner == 'bitpesa' }}
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.GLOBAL_GH_SSH_KEY }}
+
+      # https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-ruby
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+
+      - name: Install rails
+        run: gem install rails --source 'https://rubygems.org/'
+
+      - name: Generate project
+        run: ruby rails_template_generator.rb
+
+      - name: Cleanup
+        run: rm -rf rails_template_generator.rb template.rb .github/workflows/init.yml
+
+      - name: Git Commit Push Action
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_user_name: bitpesa-deploy
+          commit_user_email: engineers@azafinance.com
+          commit_message: Generate template for new rails service.
+          push_options: --force

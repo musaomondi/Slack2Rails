@@ -1,0 +1,72 @@
+require:
+  - rubocop-performance
+  - rubocop-rails
+  - rubocop-rake
+  - rubocop-rspec
+  - rubocop-thread_safety
+
+AllCops:
+  NewCops: enable
+  DisplayCopNames: true
+  Exclude:
+    - 'tmp/**/*'
+    - 'db/**/*'
+    - 'bin/**/*'
+    - 'vendor/**/*'
+    - 'lib/tasks/**/*'
+    - '**/*.rake'
+    - 'config.ru'
+    - 'Rakefile'
+    - 'config/**/*'
+    - 'test/**/*'
+    - 'script/**/*'
+    - 'buildspecs/**/*'
+    - 'harness/**/*'
+
+Metrics/BlockLength:
+  Exclude:
+    - 'spec/**/*.rb'
+    - 'config/**/*.rb'
+    - 'db/migrate/*.rb'
+    - 'lib/tasks/*.rake'
+    - 'db/schema.rb'
+Metrics/MethodLength:
+  Severity: refactor
+  Max: 25
+  Exclude:
+    - 'db/schema.rb'
+    - 'db/migrate/*.rb'
+    - 'spec/**/*.rb'
+Metrics/AbcSize:
+  Severity: refactor
+  Max: 15
+  Exclude:
+    - 'app/controllers/*.rb'
+    - 'db/migrate/**/*.rb'
+Layout/LineLength:
+  Max: 120
+  Exclude:
+    - 'db/schema.rb'
+    - 'spec/**/*.rb'
+    - 'config/**/*.rb'
+    - 'Gemfile'
+
+Metrics/ModuleLength:
+  Severity: refactor
+Metrics/PerceivedComplexity:
+  Severity: refactor
+Style/NumericLiterals:
+  Enabled: false
+Style/GuardClause:
+  Enabled: false
+Style/ConditionalAssignment:
+  Enabled: false
+Style/StringLiterals:
+  Enabled: true
+  EnforcedStyle: double_quotes
+
+# Don't require a documentation comment in top-level classes
+Style/Documentation:
+  Enabled: false
+RSpec/MultipleMemoizedHelpers:
+  Max: 7

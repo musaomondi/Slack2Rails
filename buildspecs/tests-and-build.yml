@@ -1,0 +1,35 @@
+version: 0.2
+
+env:
+  parameter-store:
+    github_ssh_key: 'github_ssh_key'
+
+phases:
+  install:
+    commands:
+      - |
+        mkdir -p ~/.ssh
+        echo "$github_ssh_key" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+      - bundle config set cache_all true
+      - bundle cache
+      - /usr/local/bin/dockerd-entrypoint.sh
+
+  pre_build:
+    commands:
+      - export TAG=$(aws codepipeline get-pipeline-state --name Auth-Service-Pipeline | jq '.stageStates[1].latestExecution.pipelineExecutionId' | tr -d '"')
+      - aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin 753253020381.dkr.ecr.eu-west-1.amazonaws.com
+
+  build:
+    commands:
+      - docker build --tag $REPOSITORY_URI:$TAG .
+
+  post_build:
+    commands:
+      - docker push $REPOSITORY_URI:$TAG
+
+artifacts:
+  files:
+    - '**/*'
+  base-directory: '.'
+  discard-paths: no
